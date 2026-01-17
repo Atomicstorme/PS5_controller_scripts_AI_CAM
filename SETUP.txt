@@ -1,0 +1,130 @@
+PS5 Controller Scripts - Setup Guide
+=====================================
+
+This application lets you modify PS5 DualSense controller input using Lua scripts
+for use with offline/single-player games.
+
+REQUIREMENTS
+------------
+1. Windows 10/11 (64-bit)
+2. PS5 DualSense controller (USB or Bluetooth)
+3. ViGEmBus driver (required for virtual controller)
+4. Visual Studio 2019/2022 with C++ workload (for building)
+
+STEP 1: Install ViGEmBus Driver
+-------------------------------
+This is REQUIRED - the app won't work without it.
+
+1. Go to: https://github.com/ViGEm/ViGEmBus/releases
+2. Download the latest ViGEmBus_Setup_x64.msi
+3. Run the installer
+4. Restart your computer
+
+STEP 2: Download Dependencies
+-----------------------------
+Run setup_dependencies.bat to create the folder structure, then download:
+
+1. Dear ImGui (v1.90+)
+   - https://github.com/ocornut/imgui/releases
+   - Download Source code (zip)
+   - Extract contents to libs/imgui/
+
+2. HIDAPI
+   - https://github.com/libusb/hidapi/releases
+   - Download hidapi-win.zip
+   - Extract hidapi.h to libs/hidapi/include/
+   - Extract x64/hidapi.lib to libs/hidapi/lib/
+   - Extract x64/hidapi.dll to libs/hidapi/lib/
+
+3. ViGEmClient
+   - https://github.com/ViGEm/ViGEmClient/releases
+   - Download the latest release
+   - Extract include/ViGEm/*.h to libs/ViGEmClient/include/ViGEm/
+   - Extract lib/release/x64/ViGEmClient.lib to libs/ViGEmClient/lib/
+   - Extract bin/release/x64/ViGEmClient.dll to libs/ViGEmClient/lib/
+
+4. Lua 5.4
+   - https://luabinaries.sourceforge.net/download.html
+   - Download lua-5.4.x_Win64_dll17_lib.zip
+   - Extract lua54.dll and lua54.lib to libs/lua/
+   - Extract include/*.h to libs/lua/include/
+
+STEP 3: Build the Application
+-----------------------------
+Open a command prompt in the project folder:
+
+    mkdir build
+    cd build
+    cmake ..
+    cmake --build . --config Release
+
+The executable will be in build/bin/Release/
+
+STEP 4: Run
+-----------
+1. Connect your PS5 DualSense controller (USB recommended)
+2. Run PS5ControllerScripts.exe
+3. The app should detect your controller and create a virtual Xbox controller
+4. Enable scripts from the Scripts panel
+5. Games will now see the virtual controller with modified input
+
+TROUBLESHOOTING
+---------------
+"Failed to connect virtual controller"
+- Make sure ViGEmBus driver is installed
+- Try reinstalling ViGEmBus
+- Restart your computer
+
+"DualSense: Disconnected"
+- Make sure controller is connected via USB or Bluetooth
+- Try pressing the PS button to wake the controller
+- Click "Reconnect" in the status bar
+
+Controller not detected by games
+- Some games only detect the first controller
+- Disconnect and reconnect your PS5 controller AFTER starting the app
+- The virtual Xbox controller should be detected instead
+
+Scripts not working
+- Check if the script has errors (red text in script list)
+- Make sure the script is enabled (checkbox checked)
+- Check the console output for error messages
+
+WRITING SCRIPTS
+---------------
+See scripts/_template.lua for a full template with documentation.
+
+Basic structure:
+    function process(input)
+        local output = input
+        -- modify output here
+        return output
+    end
+
+Available input fields:
+- left_x, left_y, right_x, right_y: Sticks (-1.0 to 1.0)
+- left_trigger, right_trigger: Triggers (0.0 to 1.0)
+- cross, circle, square, triangle: Face buttons (bool)
+- l1, r1, l3, r3: Shoulder/stick buttons (bool)
+- dt: Delta time in seconds
+
+Helper functions:
+- clamp(value, min, max)
+- lerp(a, b, t)
+- deadzone(value, zone)
+- get_param(name, default)
+- print(...)
+
+INCLUDED SCRIPTS
+----------------
+- anti_recoil.lua: Compensates for weapon recoil when firing
+- auto_sprint.lua: Auto-sprint when pushing stick forward
+- aim_assist.lua: Slows aim when ADS for precision
+- rapid_fire.lua: Rapid fire for semi-auto weapons
+- deadzone.lua: Adjustable stick deadzones
+
+LEGAL NOTE
+----------
+This software is intended for use with OFFLINE/SINGLE-PLAYER games only.
+Using input modification in online multiplayer games may violate terms
+of service and result in bans. Use responsibly.

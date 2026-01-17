@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://github.com/ocornut/imgui/archive/refs/tags/v1.91.6.zip'' -OutFile ''imgui.zip''\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://github.com/libusb/hidapi/releases/download/hidapi-0.14.0/hidapi-win.zip'' -OutFile ''hidapi.zip''\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://github.com/ViGEm/ViGEmClient/releases/download/v1.22.0.0/ViGEmClient_1.22.0.0_x64_x86_Release.zip'' -OutFile ''vigem.zip''\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://github.com/walterschell/Lua/releases/download/v5.4.5/lua-5.4.5_Win64_msvc17.zip'' -OutFile ''lua.zip''\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://github.com/rjpcomputing/luaforwindows/releases/download/v5.4.6.2411/lua5.4.6_Win64_bin.zip'' -OutFile ''lua.zip''\")",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
