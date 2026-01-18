@@ -1,4 +1,5 @@
 #include "Application.h"
+#include <imgui.h>
 #include <imgui_impl_win32.h>
 
 // Forward declare message handler from imgui_impl_win32.cpp
@@ -16,6 +17,11 @@ Application::~Application() {
 }
 
 bool Application::initialize(HINSTANCE hInstance) {
+    m_hInstance = hInstance;
+
+    // Load saved configuration
+    m_config.load();
+
     if (!createWindow(hInstance)) {
         MessageBoxA(nullptr, "Failed to create window", "Error", MB_OK | MB_ICONERROR);
         return false;
@@ -31,12 +37,71 @@ bool Application::initialize(HINSTANCE hInstance) {
         return false;
     }
 
-    if (!m_processor.initialize()) {
+    if (!m_processor.initialize(&m_config)) {
         MessageBoxA(nullptr, "Failed to initialize input processor.\n\n"
                     "Make sure ViGEmBus driver is installed:\n"
                     "https://github.com/ViGEm/ViGEmBus/releases",
                     "Error", MB_OK | MB_ICONERROR);
         return false;
+    }
+
+    // Initialize hotkey manager
+    m_hotkeys.initialize(m_hwnd);
+
+    // Set up hotkey callback to toggle scripts (and overlay)
+    m_hotkeys.setCallback([this](const std::string& scriptName) {
+        // Special case: overlay toggle
+        if (scriptName == "__overlay_toggle__") {
+            m_overlay.toggle();
+            // Update config setting
+            m_config.getSettings().overlayEnabled = m_overlay.isVisible();
+            return;
+        }
+
+        // Normal script toggle
+        auto& scripts = m_processor.getScriptManager().getScripts();
+        for (auto& script : scripts) {
+            if (script.config.name == scriptName) {
+                bool newState = !script.config.enabled;
+                m_processor.getScriptManager().setScriptEnabled(scriptName, newState);
+                break;
+            }
+        }
+    });
+
+    // Set up weapon hotkey callback to switch active weapon
+    m_hotkeys.setWeaponCallback([this](const std::string& weaponName) {
+        m_config.setActiveWeapon(weaponName);
+    });
+
+    // Load saved hotkeys from config
+    auto hotkeyData = m_config.getHotkeys();
+    m_hotkeys.loadHotkeys(hotkeyData);
+
+    // Load weapon hotkeys from saved presets
+    const auto& weaponPresets = m_config.getWeaponPresets();
+    for (const auto& preset : weaponPresets) {
+        if (preset.hotkeyVk != 0) {
+            m_hotkeys.registerWeaponHotkey(preset.name, preset.hotkeyVk, preset.hotkeyModifiers);
+        }
+    }
+
+    // Initialize overlay
+    if (!m_overlay.initialize(hInstance)) {
+        // Overlay is optional, just warn but continue
+        MessageBoxA(nullptr, "Failed to initialize overlay. Overlay will be disabled.",
+                    "Warning", MB_OK | MB_ICONWARNING);
+    } else {
+        // Apply saved overlay settings
+        const auto& settings = m_config.getSettings();
+        m_overlay.setPosition(settings.overlayPosition);
+        m_overlay.setOpacity(settings.overlayOpacity);
+        if (!settings.overlayEnabled) {
+            m_overlay.hide();
+        }
+
+        // Register overlay toggle hotkey (F12)
+        m_hotkeys.registerHotkey("__overlay_toggle__", VK_F12, 0);
     }
 
     // Auto-start processing
@@ -201,7 +266,10 @@ int Application::run() {
             break;
         }
 
-        // Render
+        // Update overlay
+        m_overlay.update(m_processor, m_config, m_hotkeys);
+
+        // Render main GUI
         float clearColor[4] = {0.1f, 0.1f, 0.12f, 1.0f};
         m_context->OMSetRenderTargets(1, &m_renderTarget, nullptr);
         m_context->ClearRenderTargetView(m_renderTarget, clearColor);
@@ -215,6 +283,19 @@ int Application::run() {
 }
 
 void Application::shutdown() {
+    // Save hotkeys to config
+    m_config.setHotkeys(m_hotkeys.serializeHotkeys());
+
+    // Save overlay settings
+    m_config.getSettings().overlayEnabled = m_overlay.isVisible();
+    m_config.getSettings().overlayPosition = m_overlay.getPosition();
+    m_config.getSettings().overlayOpacity = m_overlay.getOpacity();
+
+    // Save configuration before shutting down
+    m_config.save();
+
+    m_overlay.shutdown();
+    m_hotkeys.shutdown();
     m_processor.stop();
     m_gui.shutdown();
     destroyD3D();
@@ -231,6 +312,12 @@ LRESULT CALLBACK Application::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     }
 
     Application* app = Application::getInstance();
+
+    // Process hotkey messages (but not if ImGui wants keyboard input for text fields)
+    bool wantTextInput = ImGui::GetCurrentContext() && ImGui::GetIO().WantTextInput;
+    if (app && !wantTextInput && app->m_hotkeys.processMessage(msg, wParam, lParam)) {
+        return 0;
+    }
 
     switch (msg) {
         case WM_SIZE:

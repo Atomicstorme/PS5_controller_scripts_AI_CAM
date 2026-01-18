@@ -3,6 +3,8 @@
 #include "Common.h"
 #include "InputProcessor.h"
 
+class ConfigManager;
+
 class GUI {
 public:
     GUI();
@@ -38,4 +40,25 @@ private:
 
     // Settings
     float m_pollRate = 1000.0f;
+
+    // Profile management UI state
+    char m_newProfileName[64] = {0};
+    char m_renameProfileBuffer[64] = {0};
+    bool m_showCreateProfile = false;
+    bool m_showRenameProfile = false;
+    bool m_showDeleteConfirm = false;
+    std::string m_profileToRename;
+    std::string m_profileToDelete;
+
+    // Weapon preset UI state
+    char m_newWeaponName[64] = {0};
+    bool m_showCreateWeapon = false;
+    bool m_showDeleteWeaponConfirm = false;
+    std::string m_weaponToDelete;
+    bool m_weaponPresetExpanded = false;
+
+    // Hotkey UI state
+    bool m_capturingHotkey = false;
+    std::string m_hotkeyTarget;
+    bool m_wasTextInputActive = false;
 };

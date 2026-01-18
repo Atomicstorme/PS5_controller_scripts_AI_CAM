@@ -1,4 +1,8 @@
 #include "GUI.h"
+#include "ConfigManager.h"
+#include "Application.h"
+#include "HotkeyManager.h"
+#include "Overlay.h"
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
@@ -94,6 +98,106 @@ void GUI::render(InputProcessor& processor) {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
+    // Suspend/resume hotkeys based on text input state
+    {
+        Application* app = Application::getInstance();
+        HotkeyManager& hotkeys = app->getHotkeys();
+        bool textInputActive = ImGui::GetIO().WantTextInput;
+
+        if (textInputActive && !m_wasTextInputActive) {
+            // Text input just became active - suspend hotkeys
+            hotkeys.suspend();
+        } else if (!textInputActive && m_wasTextInputActive) {
+            // Text input just became inactive - resume hotkeys
+            hotkeys.resume();
+        }
+        m_wasTextInputActive = textInputActive;
+    }
+
+    // Handle hotkey capture mode
+    if (m_capturingHotkey) {
+        Application* app = Application::getInstance();
+        HotkeyManager& hotkeys = app->getHotkeys();
+
+        // Check for key presses using the newer ImGui API
+        ImGuiIO& io = ImGui::GetIO();
+
+        // Define keys to check for hotkey capture
+        struct KeyMapping { ImGuiKey imguiKey; int vk; };
+        static const KeyMapping keyMappings[] = {
+            // Function keys
+            {ImGuiKey_F1, VK_F1}, {ImGuiKey_F2, VK_F2}, {ImGuiKey_F3, VK_F3}, {ImGuiKey_F4, VK_F4},
+            {ImGuiKey_F5, VK_F5}, {ImGuiKey_F6, VK_F6}, {ImGuiKey_F7, VK_F7}, {ImGuiKey_F8, VK_F8},
+            {ImGuiKey_F9, VK_F9}, {ImGuiKey_F10, VK_F10}, {ImGuiKey_F11, VK_F11}, {ImGuiKey_F12, VK_F12},
+            // Numpad
+            {ImGuiKey_Keypad0, VK_NUMPAD0}, {ImGuiKey_Keypad1, VK_NUMPAD1}, {ImGuiKey_Keypad2, VK_NUMPAD2},
+            {ImGuiKey_Keypad3, VK_NUMPAD3}, {ImGuiKey_Keypad4, VK_NUMPAD4}, {ImGuiKey_Keypad5, VK_NUMPAD5},
+            {ImGuiKey_Keypad6, VK_NUMPAD6}, {ImGuiKey_Keypad7, VK_NUMPAD7}, {ImGuiKey_Keypad8, VK_NUMPAD8},
+            {ImGuiKey_Keypad9, VK_NUMPAD9}, {ImGuiKey_KeypadMultiply, VK_MULTIPLY}, {ImGuiKey_KeypadAdd, VK_ADD},
+            {ImGuiKey_KeypadSubtract, VK_SUBTRACT}, {ImGuiKey_KeypadDivide, VK_DIVIDE},
+            // Letters
+            {ImGuiKey_A, 'A'}, {ImGuiKey_B, 'B'}, {ImGuiKey_C, 'C'}, {ImGuiKey_D, 'D'}, {ImGuiKey_E, 'E'},
+            {ImGuiKey_F, 'F'}, {ImGuiKey_G, 'G'}, {ImGuiKey_H, 'H'}, {ImGuiKey_I, 'I'}, {ImGuiKey_J, 'J'},
+            {ImGuiKey_K, 'K'}, {ImGuiKey_L, 'L'}, {ImGuiKey_M, 'M'}, {ImGuiKey_N, 'N'}, {ImGuiKey_O, 'O'},
+            {ImGuiKey_P, 'P'}, {ImGuiKey_Q, 'Q'}, {ImGuiKey_R, 'R'}, {ImGuiKey_S, 'S'}, {ImGuiKey_T, 'T'},
+            {ImGuiKey_U, 'U'}, {ImGuiKey_V, 'V'}, {ImGuiKey_W, 'W'}, {ImGuiKey_X, 'X'}, {ImGuiKey_Y, 'Y'},
+            {ImGuiKey_Z, 'Z'},
+            // Numbers
+            {ImGuiKey_0, '0'}, {ImGuiKey_1, '1'}, {ImGuiKey_2, '2'}, {ImGuiKey_3, '3'}, {ImGuiKey_4, '4'},
+            {ImGuiKey_5, '5'}, {ImGuiKey_6, '6'}, {ImGuiKey_7, '7'}, {ImGuiKey_8, '8'}, {ImGuiKey_9, '9'},
+            // Special keys
+            {ImGuiKey_Escape, VK_ESCAPE}, {ImGuiKey_Delete, VK_DELETE}, {ImGuiKey_Backspace, VK_BACK},
+            {ImGuiKey_Insert, VK_INSERT}, {ImGuiKey_Home, VK_HOME}, {ImGuiKey_End, VK_END},
+            {ImGuiKey_PageUp, VK_PRIOR}, {ImGuiKey_PageDown, VK_NEXT}, {ImGuiKey_Pause, VK_PAUSE},
+            {ImGuiKey_ScrollLock, VK_SCROLL}, {ImGuiKey_GraveAccent, VK_OEM_3},
+        };
+
+        for (const auto& mapping : keyMappings) {
+            if (ImGui::IsKeyPressed(mapping.imguiKey)) {
+                int vk = mapping.vk;
+                int modifiers = 0;
+                if (io.KeyCtrl) modifiers |= MOD_CONTROL;
+                if (io.KeyAlt) modifiers |= MOD_ALT;
+                if (io.KeyShift) modifiers |= MOD_SHIFT;
+
+                bool wasWeaponCapture = hotkeys.isCapturingWeapon();
+                std::string captureTarget = hotkeys.getCaptureTarget();
+
+                if (hotkeys.processCaptureKey(vk, modifiers)) {
+                    m_capturingHotkey = false;
+                    m_hotkeyTarget.clear();
+
+                    if (wasWeaponCapture) {
+                        // Update weapon preset with hotkey info
+                        const Hotkey* weaponHk = hotkeys.getWeaponHotkey(captureTarget);
+                        if (weaponHk) {
+                            const WeaponPreset* preset = app->getConfig().getWeaponPreset(captureTarget);
+                            if (preset) {
+                                WeaponPreset updatedPreset = *preset;
+                                updatedPreset.hotkeyVk = weaponHk->virtualKey;
+                                updatedPreset.hotkeyModifiers = weaponHk->modifiers;
+                                app->getConfig().updateWeaponPreset(updatedPreset);
+                            }
+                        } else {
+                            // Hotkey was cleared - update preset to remove hotkey
+                            const WeaponPreset* preset = app->getConfig().getWeaponPreset(captureTarget);
+                            if (preset) {
+                                WeaponPreset updatedPreset = *preset;
+                                updatedPreset.hotkeyVk = 0;
+                                updatedPreset.hotkeyModifiers = 0;
+                                app->getConfig().updateWeaponPreset(updatedPreset);
+                            }
+                        }
+                    } else {
+                        // Save script hotkeys immediately
+                        app->getConfig().setHotkeys(hotkeys.serializeHotkeys());
+                    }
+                }
+                break;
+            }
+        }
+    }
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
 
@@ -355,6 +459,376 @@ void GUI::renderScriptList(InputProcessor& processor) {
 
     ImGui::Begin("Scripts", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
+    // Profile selector section
+    ConfigManager* config = processor.getConfigManager();
+    if (config) {
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.15f, 1.0f));
+        ImGui::BeginChild("ProfileSection", ImVec2(0, 60), true);
+
+        ImGui::Text("Profile:");
+        ImGui::SameLine();
+
+        // Get profile names
+        std::vector<std::string> profileNames = config->getProfileNames();
+        std::string currentProfile = config->getCurrentProfileName();
+
+        // Find current profile index
+        int currentIdx = 0;
+        for (size_t i = 0; i < profileNames.size(); i++) {
+            if (profileNames[i] == currentProfile) {
+                currentIdx = static_cast<int>(i);
+                break;
+            }
+        }
+
+        // Profile dropdown
+        ImGui::SetNextItemWidth(180);
+        if (ImGui::BeginCombo("##ProfileCombo", currentProfile.c_str())) {
+            for (size_t i = 0; i < profileNames.size(); i++) {
+                bool isSelected = (profileNames[i] == currentProfile);
+                if (ImGui::Selectable(profileNames[i].c_str(), isSelected)) {
+                    if (profileNames[i] != currentProfile) {
+                        config->switchProfile(profileNames[i]);
+                        // Rescan scripts to apply new profile settings
+                        processor.getScriptManager().rescanScripts();
+                    }
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::SameLine();
+
+        // New profile button
+        if (ImGui::Button("+##NewProfile")) {
+            m_showCreateProfile = true;
+            memset(m_newProfileName, 0, sizeof(m_newProfileName));
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Create new profile");
+        }
+
+        ImGui::SameLine();
+
+        // Rename profile button
+        if (ImGui::Button("R##RenameProfile")) {
+            if (currentProfile != "Default") {
+                m_showRenameProfile = true;
+                m_profileToRename = currentProfile;
+                strncpy_s(m_renameProfileBuffer, currentProfile.c_str(), sizeof(m_renameProfileBuffer) - 1);
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(currentProfile == "Default" ? "Cannot rename Default profile" : "Rename profile");
+        }
+
+        ImGui::SameLine();
+
+        // Delete profile button
+        if (ImGui::Button("X##DeleteProfile")) {
+            if (currentProfile != "Default") {
+                m_showDeleteConfirm = true;
+                m_profileToDelete = currentProfile;
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(currentProfile == "Default" ? "Cannot delete Default profile" : "Delete profile");
+        }
+
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+
+        // Create profile popup
+        if (m_showCreateProfile) {
+            ImGui::OpenPopup("Create Profile");
+            m_showCreateProfile = false;
+        }
+        if (ImGui::BeginPopupModal("Create Profile", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Enter new profile name:");
+            ImGui::SetNextItemWidth(200);
+            ImGui::InputText("##NewProfileName", m_newProfileName, sizeof(m_newProfileName));
+
+            ImGui::Spacing();
+            if (ImGui::Button("Create", ImVec2(90, 0))) {
+                if (strlen(m_newProfileName) > 0) {
+                    if (config->createProfile(m_newProfileName)) {
+                        config->switchProfile(m_newProfileName);
+                        processor.getScriptManager().rescanScripts();
+                    }
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(90, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        // Rename profile popup
+        if (m_showRenameProfile) {
+            ImGui::OpenPopup("Rename Profile");
+            m_showRenameProfile = false;
+        }
+        if (ImGui::BeginPopupModal("Rename Profile", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Rename profile '%s' to:", m_profileToRename.c_str());
+            ImGui::SetNextItemWidth(200);
+            ImGui::InputText("##RenameProfileName", m_renameProfileBuffer, sizeof(m_renameProfileBuffer));
+
+            ImGui::Spacing();
+            if (ImGui::Button("Rename", ImVec2(90, 0))) {
+                if (strlen(m_renameProfileBuffer) > 0 && m_renameProfileBuffer != m_profileToRename) {
+                    config->renameProfile(m_profileToRename, m_renameProfileBuffer);
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(90, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        // Delete confirmation popup
+        if (m_showDeleteConfirm) {
+            ImGui::OpenPopup("Delete Profile?");
+            m_showDeleteConfirm = false;
+        }
+        if (ImGui::BeginPopupModal("Delete Profile?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Are you sure you want to delete profile '%s'?", m_profileToDelete.c_str());
+            ImGui::Text("This action cannot be undone.");
+
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+            if (ImGui::Button("Delete", ImVec2(90, 0))) {
+                config->deleteProfile(m_profileToDelete);
+                processor.getScriptManager().rescanScripts();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::PopStyleColor();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(90, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        ImGui::Spacing();
+
+        // Weapon Presets Section (collapsible)
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.15f, 0.35f, 0.45f, 0.70f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.20f, 0.40f, 0.50f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.25f, 0.45f, 0.55f, 1.0f));
+
+        if (ImGui::CollapsingHeader("Weapon Presets (Anti-Recoil)", m_weaponPresetExpanded ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+            m_weaponPresetExpanded = true;
+
+            std::vector<std::string> weaponNames = config->getWeaponPresetNames();
+            std::string activeWeapon = config->getActiveWeaponName();
+
+            ImGui::Text("Weapon:");
+            ImGui::SameLine();
+
+            // Weapon dropdown
+            ImGui::SetNextItemWidth(150);
+            const char* previewName = activeWeapon.empty() ? "(No weapons)" : activeWeapon.c_str();
+            if (ImGui::BeginCombo("##WeaponCombo", previewName)) {
+                for (size_t i = 0; i < weaponNames.size(); i++) {
+                    bool isSelected = (weaponNames[i] == activeWeapon);
+                    if (ImGui::Selectable(weaponNames[i].c_str(), isSelected)) {
+                        config->setActiveWeapon(weaponNames[i]);
+                    }
+                    if (isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            ImGui::SameLine();
+
+            // Add weapon button
+            if (ImGui::Button("+##NewWeapon")) {
+                m_showCreateWeapon = true;
+                memset(m_newWeaponName, 0, sizeof(m_newWeaponName));
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Add new weapon preset");
+            }
+
+            ImGui::SameLine();
+
+            // Delete weapon button
+            bool hasWeapons = !weaponNames.empty();
+            if (ImGui::Button("X##DeleteWeapon") && hasWeapons) {
+                m_showDeleteWeaponConfirm = true;
+                m_weaponToDelete = activeWeapon;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(hasWeapons ? "Delete current weapon preset" : "No weapon to delete");
+            }
+
+            // Show weapon settings if a weapon is selected
+            const WeaponPreset* preset = config->getActiveWeaponPreset();
+            if (preset) {
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                // Create a mutable copy for editing
+                WeaponPreset editPreset = *preset;
+                bool changed = false;
+
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 3));
+
+                ImGui::Text("ADS Strength:");
+                ImGui::SameLine(140);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 60);
+                if (ImGui::SliderFloat("##AdsStrength", &editPreset.adsStrength, 0.0f, 1.0f, "%.2f")) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::Text("%.2f", editPreset.adsStrength);
+
+                ImGui::Text("Hip-Fire Strength:");
+                ImGui::SameLine(140);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 60);
+                if (ImGui::SliderFloat("##HipFireStrength", &editPreset.hipFireStrength, 0.0f, 1.0f, "%.2f")) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::Text("%.2f", editPreset.hipFireStrength);
+
+                ImGui::Text("Horizontal:");
+                ImGui::SameLine(140);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 60);
+                if (ImGui::SliderFloat("##HorizontalStrength", &editPreset.horizontalStrength, -1.0f, 1.0f, "%.2f")) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::Text("%.2f", editPreset.horizontalStrength);
+
+                ImGui::Text("ADS Threshold:");
+                ImGui::SameLine(140);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 60);
+                if (ImGui::SliderFloat("##AdsThreshold", &editPreset.adsThreshold, 0.0f, 1.0f, "%.2f")) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::Text("%.2f", editPreset.adsThreshold);
+
+                ImGui::Text("Fire Threshold:");
+                ImGui::SameLine(140);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 60);
+                if (ImGui::SliderFloat("##FireThreshold", &editPreset.fireThreshold, 0.0f, 1.0f, "%.2f")) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::Text("%.2f", editPreset.fireThreshold);
+
+                ImGui::Text("Smoothing:");
+                ImGui::SameLine(140);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 60);
+                if (ImGui::SliderFloat("##Smoothing", &editPreset.smoothing, 0.0f, 1.0f, "%.2f")) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::Text("%.2f", editPreset.smoothing);
+
+                ImGui::PopStyleVar();
+
+                // Weapon hotkey
+                ImGui::Spacing();
+                ImGui::Text("Hotkey:");
+                ImGui::SameLine(140);
+
+                Application* app = Application::getInstance();
+                HotkeyManager& hotkeys = app->getHotkeys();
+                const Hotkey* weaponHk = hotkeys.getWeaponHotkey(editPreset.name);
+                std::string weaponHotkeyLabel = weaponHk && weaponHk->virtualKey != 0 ? weaponHk->getDisplayName() : "Not Set";
+
+                // Check if we're capturing a hotkey for this weapon
+                if (m_capturingHotkey && m_hotkeyTarget == ("weapon:" + editPreset.name)) {
+                    weaponHotkeyLabel = "[Press Key]";
+                }
+
+                if (ImGui::Button(weaponHotkeyLabel.c_str(), ImVec2(100, 0))) {
+                    if (!m_capturingHotkey) {
+                        m_capturingHotkey = true;
+                        m_hotkeyTarget = "weapon:" + editPreset.name;
+                        hotkeys.startWeaponCapture(editPreset.name);
+                    }
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Click to set hotkey for quick weapon switch (Esc=cancel, Del=clear)");
+                }
+
+                if (changed) {
+                    config->updateWeaponPreset(editPreset);
+                }
+            } else if (weaponNames.empty()) {
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No weapon presets. Click + to add one.");
+            }
+
+            // Create weapon popup
+            if (m_showCreateWeapon) {
+                ImGui::OpenPopup("Create Weapon Preset");
+                m_showCreateWeapon = false;
+            }
+            if (ImGui::BeginPopupModal("Create Weapon Preset", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Enter weapon name:");
+                ImGui::SetNextItemWidth(200);
+                ImGui::InputText("##NewWeaponName", m_newWeaponName, sizeof(m_newWeaponName));
+
+                ImGui::Spacing();
+                if (ImGui::Button("Create", ImVec2(90, 0))) {
+                    if (strlen(m_newWeaponName) > 0) {
+                        if (config->createWeaponPreset(m_newWeaponName)) {
+                            config->setActiveWeapon(m_newWeaponName);
+                        }
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(90, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            // Delete weapon confirmation popup
+            if (m_showDeleteWeaponConfirm) {
+                ImGui::OpenPopup("Delete Weapon?");
+                m_showDeleteWeaponConfirm = false;
+            }
+            if (ImGui::BeginPopupModal("Delete Weapon?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Delete weapon preset '%s'?", m_weaponToDelete.c_str());
+
+                ImGui::Spacing();
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+                if (ImGui::Button("Delete", ImVec2(90, 0))) {
+                    config->deleteWeaponPreset(m_weaponToDelete);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::PopStyleColor();
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(90, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+        } else {
+            m_weaponPresetExpanded = false;
+        }
+
+        ImGui::PopStyleColor(3);
+        ImGui::Spacing();
+    }
+
     auto& scripts = processor.getScriptManager().getScripts();
 
     if (scripts.empty()) {
@@ -414,6 +888,31 @@ void GUI::renderScriptList(InputProcessor& processor) {
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("%s", script.engine->getLastError().c_str());
                 }
+            }
+
+            // Hotkey button and reorder buttons on the right
+            Application* app = Application::getInstance();
+            HotkeyManager& hotkeys = app->getHotkeys();
+            const Hotkey* hk = hotkeys.getHotkey(script.config.name);
+            std::string hotkeyLabel = hk && hk->virtualKey != 0 ? hk->getDisplayName() : "...";
+
+            // Check if we're capturing a hotkey for this script
+            if (m_capturingHotkey && m_hotkeyTarget == script.config.name) {
+                hotkeyLabel = "[Press Key]";
+            }
+
+            ImGui::SameLine(ImGui::GetWindowWidth() - 140);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2));
+            if (ImGui::Button(hotkeyLabel.c_str(), ImVec2(60, 20))) {
+                if (!m_capturingHotkey) {
+                    m_capturingHotkey = true;
+                    m_hotkeyTarget = script.config.name;
+                    hotkeys.startCapture(script.config.name);
+                }
+            }
+            ImGui::PopStyleVar();
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Click to set hotkey (Esc=cancel, Del=clear)");
             }
 
             // Reorder buttons on the right
@@ -528,12 +1027,10 @@ void GUI::renderScriptList(InputProcessor& processor) {
                             }
                         }
 
-                        // Update parameter value in script engine
+                        // Update parameter value in script engine and save to config
                         if (valueChanged) {
                             param.value = newValue;
-                            if (script.engine) {
-                                script.engine->setParameter(param.key, newValue);
-                            }
+                            processor.getScriptManager().setScriptParameter(script.config.name, param.key, newValue);
                         }
 
                         ImGui::PopID();
@@ -544,9 +1041,7 @@ void GUI::renderScriptList(InputProcessor& processor) {
                     if (ImGui::Button("Reset to Defaults")) {
                         for (auto& param : script.config.parameters) {
                             param.value = param.defaultValue;
-                            if (script.engine) {
-                                script.engine->setParameter(param.key, param.defaultValue);
-                            }
+                            processor.getScriptManager().setScriptParameter(script.config.name, param.key, param.defaultValue);
                         }
                     }
                 }
@@ -619,6 +1114,52 @@ void GUI::renderSettings(InputProcessor& processor) {
                 static_cast<uint8_t>(ledColor[2] * 255)
             );
         }
+    }
+
+    ImGui::Spacing();
+
+    if (ImGui::CollapsingHeader("Overlay", ImGuiTreeNodeFlags_DefaultOpen)) {
+        Application* app = Application::getInstance();
+        Overlay& overlay = app->getOverlay();
+        ConfigManager& config = app->getConfig();
+
+        // Overlay enabled checkbox
+        bool overlayEnabled = overlay.isVisible();
+        ImGui::Text("Show Overlay");
+        ImGui::SameLine(120);
+        if (ImGui::Checkbox("##OverlayEnabled", &overlayEnabled)) {
+            if (overlayEnabled) {
+                overlay.show();
+            } else {
+                overlay.hide();
+            }
+            config.getSettings().overlayEnabled = overlayEnabled;
+        }
+
+        // Position dropdown
+        ImGui::Text("Position");
+        ImGui::SameLine(120);
+        ImGui::SetNextItemWidth(-1);
+        const char* positions[] = { "Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right" };
+        int currentPos = static_cast<int>(overlay.getPosition());
+        if (ImGui::Combo("##OverlayPosition", &currentPos, positions, 4)) {
+            overlay.setPosition(static_cast<OverlayPosition>(currentPos));
+            config.getSettings().overlayPosition = static_cast<OverlayPosition>(currentPos);
+        }
+
+        // Opacity slider
+        ImGui::Text("Opacity");
+        ImGui::SameLine(120);
+        ImGui::SetNextItemWidth(-1);
+        float opacity = overlay.getOpacity();
+        if (ImGui::SliderFloat("##OverlayOpacity", &opacity, 0.1f, 1.0f, "%.0f%%", ImGuiSliderFlags_None)) {
+            overlay.setOpacity(opacity);
+            config.getSettings().overlayOpacity = opacity;
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.55f, 1.0f));
+        ImGui::TextWrapped("Press F12 to toggle overlay visibility.");
+        ImGui::PopStyleColor();
     }
 
     ImGui::End();

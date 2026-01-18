@@ -100,11 +100,14 @@ target_include_directories(imgui PUBLIC
 set(APP_SOURCES
     src/main.cpp
     src/Application.cpp
+    src/ConfigManager.cpp
     src/DualSenseController.cpp
     src/VirtualController.cpp
     src/ScriptEngine.cpp
     src/ScriptManager.cpp
     src/InputProcessor.cpp
+    src/HotkeyManager.cpp
+    src/Overlay.cpp
     src/GUI.cpp
 )
 

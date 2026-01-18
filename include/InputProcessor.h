@@ -5,13 +5,15 @@
 #include "VirtualController.h"
 #include "ScriptManager.h"
 
+class ConfigManager;  // Forward declaration
+
 class InputProcessor {
 public:
     InputProcessor();
     ~InputProcessor();
 
     // Initialize all components
-    bool initialize();
+    bool initialize(ConfigManager* config = nullptr);
 
     // Start/stop processing loop
     bool start();
@@ -25,6 +27,7 @@ public:
     DualSenseController& getDualSense() { return m_dualSense; }
     VirtualController& getVirtual() { return m_virtual; }
     ScriptManager& getScriptManager() { return m_scriptManager; }
+    ConfigManager* getConfigManager() { return m_config; }
 
     // Get current states
     const NormalizedState& getInputState() const { return m_inputState; }
@@ -60,4 +63,6 @@ private:
 
     std::chrono::high_resolution_clock::time_point m_lastUpdate;
     std::mutex m_stateMutex;
+
+    ConfigManager* m_config = nullptr;
 };

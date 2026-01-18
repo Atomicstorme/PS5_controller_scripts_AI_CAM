@@ -1,11 +1,12 @@
 -- Anti-Recoil Script
 -- Automatically compensates for weapon recoil when firing (R2 pressed)
+-- Supports per-weapon presets from the Weapon Presets panel
 
 script_info = {
     name = "Anti-Recoil",
-    description = "Automatically compensates for weapon recoil when firing",
+    description = "Automatically compensates for weapon recoil when firing. Use Weapon Presets for per-gun settings.",
     author = "PS5 Controller Scripts",
-    version = "1.1",
+    version = "1.2",
     parameters = {
         {
             key = "strength_ads",
@@ -28,7 +29,7 @@ script_info = {
             step = 0.01
         },
         {
-            key = "horizontal",
+            key = "horizontal_strength",
             name = "Horizontal",
             description = "Horizontal adjustment for weapons with sideways recoil",
             type = "float",
@@ -38,21 +39,21 @@ script_info = {
             step = 0.01
         },
         {
-            key = "delay",
-            name = "Delay (sec)",
-            description = "Time before compensation starts after firing",
+            key = "smoothing",
+            name = "Smoothing",
+            description = "How smoothly to apply compensation (0 = instant, 1 = very smooth)",
             type = "float",
-            default = 0.05,
+            default = 0.5,
             min = 0.0,
-            max = 0.5,
-            step = 0.01
+            max = 1.0,
+            step = 0.05
         },
         {
             key = "fire_threshold",
             name = "Fire Threshold",
             description = "R2 pressure needed to activate (0.0-1.0)",
             type = "float",
-            default = 0.5,
+            default = 0.3,
             min = 0.1,
             max = 1.0,
             step = 0.1
@@ -72,6 +73,8 @@ script_info = {
 
 -- State
 local firing_time = 0
+local current_compensation_y = 0
+local current_compensation_x = 0
 
 function init()
     print("Anti-Recoil script loaded")
@@ -80,12 +83,12 @@ end
 function process(input)
     local output = input
 
-    -- Get parameters
+    -- Get parameters (these may be overridden by weapon presets)
     local strength_ads = get_param("strength_ads", 0.15)
     local strength_hipfire = get_param("strength_hipfire", 0.10)
-    local horizontal = get_param("horizontal", 0.0)
-    local delay = get_param("delay", 0.05)
-    local fire_threshold = get_param("fire_threshold", 0.5)
+    local horizontal = get_param("horizontal_strength", 0.0)
+    local smoothing = get_param("smoothing", 0.5)
+    local fire_threshold = get_param("fire_threshold", 0.3)
     local ads_threshold = get_param("ads_threshold", 0.3)
 
     -- Check if firing (R2 pressed beyond threshold)
@@ -96,22 +99,33 @@ function process(input)
     if is_firing then
         firing_time = firing_time + input.dt
 
-        -- Apply compensation after delay
-        if firing_time > delay then
-            -- Use ADS or hip-fire strength based on L2
-            local strength = is_ads and strength_ads or strength_hipfire
+        -- Use ADS or hip-fire strength based on L2
+        local target_strength = is_ads and strength_ads or strength_hipfire
+        local target_horizontal = horizontal
 
-            -- Pull the right stick down to compensate for recoil
-            output.right_y = clamp(input.right_y + strength, -1.0, 1.0)
+        -- Apply smoothing (lerp towards target)
+        local smooth_factor = 1.0 - (smoothing * 0.95)  -- 0.05 to 1.0 range
+        current_compensation_y = current_compensation_y + (target_strength - current_compensation_y) * smooth_factor
+        current_compensation_x = current_compensation_x + (target_horizontal - current_compensation_x) * smooth_factor
 
-            -- Optional horizontal compensation
-            if horizontal ~= 0 then
-                output.right_x = clamp(input.right_x + horizontal, -1.0, 1.0)
-            end
+        -- Apply compensation
+        output.right_y = clamp(input.right_y + current_compensation_y, -1.0, 1.0)
+
+        if current_compensation_x ~= 0 then
+            output.right_x = clamp(input.right_x + current_compensation_x, -1.0, 1.0)
         end
     else
-        -- Reset when not firing
-        firing_time = 0
+        -- Smooth release when not firing
+        local smooth_factor = 1.0 - (smoothing * 0.95)
+        current_compensation_y = current_compensation_y * (1.0 - smooth_factor)
+        current_compensation_x = current_compensation_x * (1.0 - smooth_factor)
+
+        -- Reset after compensation decays
+        if math.abs(current_compensation_y) < 0.001 then
+            current_compensation_y = 0
+            current_compensation_x = 0
+            firing_time = 0
+        end
     end
 
     return output

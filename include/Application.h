@@ -2,6 +2,9 @@
 
 #include "Common.h"
 #include "InputProcessor.h"
+#include "ConfigManager.h"
+#include "HotkeyManager.h"
+#include "Overlay.h"
 #include "GUI.h"
 #include <d3d11.h>
 
@@ -44,8 +47,19 @@ private:
     ID3D11RenderTargetView* m_renderTarget = nullptr;
 
     // Components
+    ConfigManager m_config;
     InputProcessor m_processor;
+    HotkeyManager m_hotkeys;
+    Overlay m_overlay;
     GUI m_gui;
 
+    HINSTANCE m_hInstance = nullptr;
     bool m_running = false;
+
+public:
+    // Accessors for GUI
+    ConfigManager& getConfig() { return m_config; }
+    HotkeyManager& getHotkeys() { return m_hotkeys; }
+    InputProcessor& getProcessor() { return m_processor; }
+    Overlay& getOverlay() { return m_overlay; }
 };

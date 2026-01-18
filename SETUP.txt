@@ -68,6 +68,55 @@ STEP 4: Run
 4. Enable scripts from the Scripts panel
 5. Games will now see the virtual controller with modified input
 
+FEATURES
+--------
+- Per-Game Profiles: Create different configurations for each game
+- Weapon Presets: Per-gun recoil patterns with customizable settings
+- Global Hotkeys: Toggle scripts and switch weapons with keyboard shortcuts
+- On-Screen Overlay: See active scripts and weapon info while gaming (F12 to toggle)
+
+PROFILES
+--------
+Create different profiles for each game:
+1. Click the + button next to the profile dropdown
+2. Enter a profile name (e.g., "Call of Duty")
+3. Configure scripts and weapon presets for that profile
+4. Switch between profiles using the dropdown
+
+WEAPON PRESETS
+--------------
+Create per-gun recoil patterns:
+1. Expand the Weapon Presets section
+2. Click + to add a new weapon (e.g., "AK-47")
+3. Adjust ADS Strength, Hip-Fire Strength, Horizontal, and Smoothing
+4. Set a Hotkey to quickly switch to that weapon in-game
+
+HOTKEYS
+-------
+- Script Hotkeys: Click the "..." button next to any script to assign a toggle key
+- Weapon Hotkeys: In Weapon Presets, click the hotkey button to assign a switch key
+- Overlay Toggle: Press F12 to show/hide the on-screen overlay
+
+To set a hotkey:
+1. Click the hotkey button
+2. Press your desired key (with optional Ctrl/Alt/Shift)
+3. Press Escape to cancel, Delete to clear
+
+OVERLAY
+-------
+The overlay shows status while gaming:
+- Controller connection status
+- Active weapon and settings
+- Enabled scripts
+- Configured hotkeys
+
+Configure in File > Settings > Overlay:
+- Show/Hide checkbox
+- Position (corner selection)
+- Opacity slider
+
+Press F12 to toggle visibility.
+
 TROUBLESHOOTING
 ---------------
 "Failed to connect virtual controller"
@@ -89,6 +138,16 @@ Scripts not working
 - Check if the script has errors (red text in script list)
 - Make sure the script is enabled (checkbox checked)
 - Check the console output for error messages
+
+Hotkeys not working
+- Make sure you're not typing in a text field
+- Try a different key combination
+- Some keys may be reserved by the system
+
+Overlay not visible
+- Press F12 to toggle visibility
+- Check File > Settings > Overlay to ensure it's enabled
+- The overlay only works with borderless/windowed games, not exclusive fullscreen
 
 WRITING SCRIPTS
 ---------------

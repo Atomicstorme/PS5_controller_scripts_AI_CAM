@@ -4,6 +4,8 @@
 #include "ScriptEngine.h"
 #include <filesystem>
 
+class ConfigManager;  // Forward declaration
+
 struct LoadedScript {
     std::unique_ptr<ScriptEngine> engine;
     ScriptConfig config;
@@ -16,7 +18,7 @@ public:
     ~ScriptManager();
 
     // Initialize and scan for scripts
-    bool initialize(const std::string& scriptsFolder = "scripts");
+    bool initialize(const std::string& scriptsFolder = "scripts", ConfigManager* config = nullptr);
 
     // Reload all scripts from folder
     void rescanScripts();
@@ -48,4 +50,5 @@ public:
 private:
     std::vector<LoadedScript> m_scripts;
     std::string m_scriptsFolder;
+    ConfigManager* m_config = nullptr;
 };

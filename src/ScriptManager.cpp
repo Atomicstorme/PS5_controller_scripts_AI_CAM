@@ -1,4 +1,5 @@
 #include "ScriptManager.h"
+#include "ConfigManager.h"
 #include <algorithm>
 
 namespace fs = std::filesystem;
@@ -9,8 +10,9 @@ ScriptManager::ScriptManager() {
 ScriptManager::~ScriptManager() {
 }
 
-bool ScriptManager::initialize(const std::string& scriptsFolder) {
+bool ScriptManager::initialize(const std::string& scriptsFolder, ConfigManager* config) {
     m_scriptsFolder = scriptsFolder;
+    m_config = config;
 
     // Create scripts folder if it doesn't exist
     if (!fs::exists(m_scriptsFolder)) {
@@ -62,9 +64,14 @@ void ScriptManager::rescanScripts() {
                 script.config.version = info.version;
                 script.config.parameters = info.parameters;
 
-                // Initialize default parameters in the engine
+                // Restore saved settings from config
+                if (m_config) {
+                    m_config->updateScriptConfig(script.config);
+                }
+
+                // Initialize parameters in the engine (use restored values or defaults)
                 for (const auto& param : script.config.parameters) {
-                    script.engine->setParameter(param.key, param.defaultValue);
+                    script.engine->setParameter(param.key, param.value);
                 }
 
                 script.engine->callInit();
@@ -122,6 +129,10 @@ void ScriptManager::setScriptEnabled(const std::string& name, bool enabled) {
     for (auto& script : m_scripts) {
         if (script.config.name == name) {
             script.config.enabled = enabled;
+            // Save to config
+            if (m_config) {
+                m_config->setScriptEnabled(name, enabled);
+            }
             return;
         }
     }
@@ -139,8 +150,20 @@ bool ScriptManager::isScriptEnabled(const std::string& name) const {
 NormalizedState ScriptManager::process(const NormalizedState& input, float deltaTime) {
     NormalizedState current = input;
 
+    // Get active weapon preset if available
+    const WeaponPreset* activePreset = nullptr;
+    if (m_config) {
+        activePreset = m_config->getActiveWeaponPreset();
+    }
+
     for (auto& script : m_scripts) {
         if (script.config.enabled && script.loaded && script.engine) {
+            // Apply weapon preset to anti-recoil script if available
+            if (activePreset && (script.config.name == "Anti-Recoil" ||
+                                  script.config.name.find("anti") != std::string::npos ||
+                                  script.config.name.find("recoil") != std::string::npos)) {
+                script.engine->applyWeaponPreset(activePreset);
+            }
             current = script.engine->process(current, deltaTime);
         }
     }
@@ -152,6 +175,10 @@ void ScriptManager::setScriptParameter(const std::string& scriptName, const std:
     for (auto& script : m_scripts) {
         if (script.config.name == scriptName && script.engine) {
             script.engine->setParameter(param, value);
+            // Save to config
+            if (m_config) {
+                m_config->setScriptParameter(scriptName, param, value);
+            }
             return;
         }
     }

@@ -519,3 +519,15 @@ void ScriptEngine::syncParameters(const std::vector<ScriptParameter>& params) {
         m_parameters[param.key] = param.value;
     }
 }
+
+void ScriptEngine::applyWeaponPreset(const WeaponPreset* preset) {
+    if (!preset) return;
+
+    // Map weapon preset fields to standard anti-recoil script parameters
+    m_parameters["strength_ads"] = preset->adsStrength;
+    m_parameters["strength_hipfire"] = preset->hipFireStrength;
+    m_parameters["horizontal_strength"] = preset->horizontalStrength;
+    m_parameters["ads_threshold"] = preset->adsThreshold;
+    m_parameters["fire_threshold"] = preset->fireThreshold;
+    m_parameters["smoothing"] = preset->smoothing;
+}

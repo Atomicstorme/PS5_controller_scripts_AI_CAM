@@ -138,12 +138,38 @@ struct ScriptConfig {
     std::vector<ScriptParameter> parameters;
 };
 
+// Weapon preset for per-gun recoil patterns
+struct WeaponPreset {
+    std::string name;           // Weapon name (e.g., "AK-47", "M4A1")
+    float adsStrength = 0.15f;  // Anti-recoil strength when ADS
+    float hipFireStrength = 0.10f; // Anti-recoil strength when hip-firing
+    float horizontalStrength = 0.0f; // Horizontal recoil compensation
+    float adsThreshold = 0.3f;  // L2 threshold to detect ADS
+    float fireThreshold = 0.3f; // R2 threshold to detect firing
+    float smoothing = 0.5f;     // Smoothing factor (0 = instant, 1 = very smooth)
+    int hotkeyVk = 0;           // Virtual key code for hotkey
+    int hotkeyModifiers = 0;    // Modifier keys (MOD_CONTROL, etc.)
+};
+
+// Overlay position enum
+enum class OverlayPosition {
+    TopLeft = 0,
+    TopRight = 1,
+    BottomLeft = 2,
+    BottomRight = 3
+};
+
 // Application settings
 struct AppSettings {
     float pollRate = 1000.0f;  // Hz
     bool showDemo = false;
     bool minimizeToTray = true;
     std::vector<ScriptConfig> scripts;
+
+    // Overlay settings
+    bool overlayEnabled = true;
+    OverlayPosition overlayPosition = OverlayPosition::TopLeft;
+    float overlayOpacity = 0.85f;
 };
 
 // Utility functions

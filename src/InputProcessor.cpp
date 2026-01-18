@@ -1,4 +1,5 @@
 #include "InputProcessor.h"
+#include "ConfigManager.h"
 #include <iostream>
 
 InputProcessor::InputProcessor() {
@@ -9,9 +10,11 @@ InputProcessor::~InputProcessor() {
     stop();
 }
 
-bool InputProcessor::initialize() {
-    // Initialize script manager
-    if (!m_scriptManager.initialize("scripts")) {
+bool InputProcessor::initialize(ConfigManager* config) {
+    m_config = config;
+
+    // Initialize script manager with config for saved settings
+    if (!m_scriptManager.initialize("scripts", config)) {
         std::cerr << "Warning: Failed to initialize script manager" << std::endl;
     }
 

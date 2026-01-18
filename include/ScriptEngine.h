@@ -46,6 +46,9 @@ public:
     // Sync parameters from config (after loading from saved settings)
     void syncParameters(const std::vector<ScriptParameter>& params);
 
+    // Apply weapon preset overrides (for anti-recoil script)
+    void applyWeaponPreset(const WeaponPreset* preset);
+
 private:
     // Register C functions for Lua
     void registerFunctions();

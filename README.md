@@ -14,6 +14,10 @@ A Windows application for modifying PS5 DualSense controller input using Lua scr
 - **Lua Scripting** - Write custom scripts to modify controller input in real-time
 - **Live Preview** - See input and output values side-by-side in the GUI
 - **Hot Reload** - Refresh scripts without restarting the application
+- **Per-Game Profiles** - Save different script configurations for each game
+- **Weapon Presets** - Per-gun recoil patterns with customizable settings
+- **Global Hotkeys** - Toggle scripts and switch weapons with keyboard shortcuts
+- **On-Screen Overlay** - See active scripts and weapon info while gaming
 
 ## Requirements
 
@@ -48,7 +52,7 @@ See `SETUP.txt` for detailed instructions.
 
 1. Open the folder in Visual Studio 2022
 2. Select a kit (e.g., "Visual Studio Community 2022 Release - amd64")
-3. Build → Build All
+3. Build -> Build All
 
 Or via command line:
 ```bash
@@ -65,6 +69,61 @@ cmake --build . --config Release
 3. Run `PS5ControllerScripts.exe`
 4. Enable scripts by checking the checkbox next to them
 5. Play your game - it will see the virtual Xbox controller with modified input
+
+## Profiles
+
+Create different profiles for each game with unique script settings:
+
+1. Click the **+** button next to the profile dropdown
+2. Enter a profile name (e.g., "Call of Duty", "Apex Legends")
+3. Configure scripts and weapon presets for that profile
+4. Switch between profiles using the dropdown
+
+Settings are automatically saved and restored when you switch profiles.
+
+## Weapon Presets
+
+Create per-gun recoil patterns within each profile:
+
+1. Expand the **Weapon Presets** section
+2. Click **+** to add a new weapon (e.g., "AK-47", "M4A1")
+3. Adjust settings for that weapon:
+   - **ADS Strength** - Anti-recoil when aiming down sights
+   - **Hip-Fire Strength** - Anti-recoil when hip-firing
+   - **Horizontal** - Horizontal recoil compensation
+   - **Smoothing** - Movement smoothing (0 = instant, 1 = smooth)
+4. Set a **Hotkey** to quickly switch to that weapon in-game
+
+## Hotkeys
+
+### Script Hotkeys
+Click the hotkey button next to any script (shows "..." or current key) to assign a toggle hotkey.
+
+### Weapon Hotkeys
+In the Weapon Presets section, click the hotkey button to assign a key for instant weapon switching.
+
+### Overlay Toggle
+Press **F12** to show/hide the on-screen overlay.
+
+### Setting Hotkeys
+1. Click the hotkey button
+2. Press your desired key (with optional Ctrl/Alt/Shift modifiers)
+3. Press **Escape** to cancel, **Delete** to clear
+
+## On-Screen Overlay
+
+The overlay displays real-time status while gaming:
+- Controller connection status
+- Active weapon and settings
+- Enabled scripts
+- Configured hotkeys
+
+Configure in **File > Settings > Overlay**:
+- **Show/Hide** - Toggle overlay visibility
+- **Position** - Choose corner (Top-Left, Top-Right, Bottom-Left, Bottom-Right)
+- **Opacity** - Adjust transparency
+
+The overlay works over borderless/windowed games. Press **F12** to toggle.
 
 ## Included Scripts
 
