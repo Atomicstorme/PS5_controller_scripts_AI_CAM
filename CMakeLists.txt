@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
+
+# Use latest Windows SDK (avoid SDK 8.1 requirement)
+if(WIN32)
+    set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "Windows SDK version" FORCE)
+endif()
+
 project(PS5ControllerScripts VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)

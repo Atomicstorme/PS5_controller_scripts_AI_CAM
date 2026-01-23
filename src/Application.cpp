@@ -100,8 +100,8 @@ bool Application::initialize(HINSTANCE hInstance) {
             m_overlay.hide();
         }
 
-        // Register overlay toggle hotkey (F12)
-        m_hotkeys.registerHotkey("__overlay_toggle__", VK_F12, 0);
+        // Register overlay toggle hotkey (F11 - F12 triggers Windows debugger break)
+        m_hotkeys.registerHotkey("__overlay_toggle__", VK_F11, 0);
     }
 
     // Auto-start processing

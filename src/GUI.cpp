@@ -23,6 +23,7 @@ bool GUI::initialize(void* hwnd, void* device, void* deviceContext) {
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigDebugIsDebuggerPresent = false;  // Disable ImGui debug breaks when running in debugger
 
     // Set up styling
     ImGui::StyleColorsDark();
@@ -1158,7 +1159,7 @@ void GUI::renderSettings(InputProcessor& processor) {
         }
 
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.55f, 1.0f));
-        ImGui::TextWrapped("Press F12 to toggle overlay visibility.");
+        ImGui::TextWrapped("Press F11 to toggle overlay visibility.");
         ImGui::PopStyleColor();
     }
 
